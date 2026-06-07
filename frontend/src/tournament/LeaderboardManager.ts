@@ -90,6 +90,30 @@ export class LeaderboardManager {
   }
 
   /**
+   * Sync player ELO and name from server leaderboard data.
+   * Called periodically by LeaderboardPanel to keep local cache in sync.
+   */
+  static updateFromServer(id: string, name: string, elo: number): void {
+    LeaderboardManager.load();
+    const existing = LeaderboardManager.players.get(id);
+    if (existing !== undefined) {
+      // Only update if server ELO differs (server is authoritative)
+      if (existing.elo !== elo) {
+        existing.eloHistory.push(elo);
+        if (existing.eloHistory.length > 50) existing.eloHistory.shift();
+        existing.elo = elo;
+      }
+      if (existing.name !== name) {
+        existing.name = name;
+      }
+      LeaderboardManager.save();
+    } else {
+      // New player from server
+      LeaderboardManager.addPlayer(id, name, elo);
+    }
+  }
+
+  /**
    * Add a new player (or update name of existing).
    */
   static addPlayer(id: string, name: string, elo: number = DEFAULT_ELO): PlayerEntry {

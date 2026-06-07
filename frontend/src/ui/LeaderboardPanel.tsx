@@ -22,6 +22,7 @@ import {
   KeyboardArrowDown as ExpandIcon,
   KeyboardArrowUp as CollapseIcon,
   Search as SearchIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { LeaderboardManager } from '../tournament/LeaderboardManager';
 import type { LeaderboardEntry, LeaderboardSortBy, PlayerEntry } from '../tournament/types';
@@ -63,28 +64,41 @@ export default function LeaderboardPanel({ onBack }: LeaderboardPanelProps): JSX
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [serverEntries, setServerEntries] = useState<Map<string, ServerLeaderboardEntry>>(new Map());
-  const [, setTick] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch server leaderboard for badge info
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_BASE}/api/v1/leaderboard?limit=500`)
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && data.entries !== undefined) {
-          const map = new Map<string, ServerLeaderboardEntry>();
-          for (const entry of data.entries as ServerLeaderboardEntry[]) {
-            map.set(entry.id, entry);
-          }
-          setServerEntries(map);
+  const fetchLeaderboard = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/leaderboard?limit=500`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.entries !== undefined) {
+        const map = new Map<string, ServerLeaderboardEntry>();
+        for (const entry of data.entries as ServerLeaderboardEntry[]) {
+          map.set(entry.id, entry);
         }
-      })
-      .catch(() => {
-        // Server not available, fallback to local only
-      });
-    return () => { cancelled = true; };
+        setServerEntries(map);
+
+        // Sync ELO/name into local LeaderboardManager
+        for (const entry of data.entries as ServerLeaderboardEntry[]) {
+          LeaderboardManager.updateFromServer(entry.id, entry.name, entry.elo);
+        }
+        setLastUpdated(new Date());
+      }
+    } catch {
+      // Server not available
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
+
+  // Poll server for live updates
+  useEffect(() => {
+    fetchLeaderboard();
+    const timer = setInterval(fetchLeaderboard, 10000); // 10s
+    return () => clearInterval(timer);
+  }, [fetchLeaderboard]);
 
   const entries = useMemo((): LeaderboardEntry[] => {
     LeaderboardManager.load();
@@ -166,6 +180,21 @@ export default function LeaderboardPanel({ onBack }: LeaderboardPanelProps): JSX
         <Typography variant="h5" fontWeight={600} sx={{ color: '#ccc' }}>
           🏆 排行榜
         </Typography>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Typography variant="caption" color="#666">
+            {lastUpdated
+              ? `更新于 ${lastUpdated.toLocaleTimeString()}`
+              : '加载中...'}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={fetchLeaderboard}
+            disabled={isRefreshing}
+            sx={{ color: '#888' }}
+          >
+            <RefreshIcon sx={{ fontSize: 18, opacity: isRefreshing ? 0.4 : 1 }} />
+          </IconButton>
+        </Stack>
       </Stack>
 
       {/* Controls */}

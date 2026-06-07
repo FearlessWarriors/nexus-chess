@@ -93,10 +93,25 @@ export default function HomePage({ onNavigate }: HomePageProps): JSX.Element {
   const [top5Loading, setTop5Loading] = useState(true);
 
   useEffect(() => {
-    fetchLeaderboardTop5().then((data) => {
-      setTop5(data);
-      setTop5Loading(false);
-    });
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval>;
+
+    const fetchData = () => {
+      fetchLeaderboardTop5().then((data) => {
+        if (!cancelled) {
+          setTop5(data);
+          setTop5Loading(false);
+        }
+      });
+    };
+
+    fetchData(); // initial fetch
+    timer = setInterval(fetchData, 15000); // poll every 15s
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
   const handleAuthClick = useCallback(() => {
