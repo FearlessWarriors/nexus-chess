@@ -9,6 +9,7 @@ import { HeartbeatManager } from './Heartbeat.js';
 import { openDatabase } from './db/schema.js';
 import { bootstrapAdminUser, createAuthRouter, getUserAuthRow, verifyJwt } from './routes/auth.js';
 import { createAdminRouter } from './routes/admin.js';
+import aiRoutes from './routes/ai.js';
 import {
   PlayerState,
   ConnectionStatus,
@@ -84,6 +85,9 @@ app.use(authRouter);
 // Admin routes (mounted at /api/v1/admin)
 const adminRouter = createAdminRouter(db);
 app.use('/api/v1/admin', adminRouter);
+
+// AI routes (mounted at /api/v1/ai)
+app.use('/api/v1/ai', aiRoutes);
 
 // Health check
 app.get('/api/v1/health', (_req, res) => {

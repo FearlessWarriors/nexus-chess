@@ -10,7 +10,7 @@ import {
 // ─── Initial FEN ─────────────────────────────────────────────────────────────
 
 const INITIAL_FEN =
-  'BScBSBScBCBScBSBSc/7/7/7/7/7/WScWSWScWCWScWSWSc w 0 1';
+  'BFBABFBCBFBABF/7/7/7/7/7/WFWAWFWCWFWAWF w 0 1 -';
 
 // ─── RoomManager ─────────────────────────────────────────────────────────────
 

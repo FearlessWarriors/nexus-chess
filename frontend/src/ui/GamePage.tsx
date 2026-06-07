@@ -32,9 +32,10 @@ import { getPieces, getCore } from '../engine/board';
 import { WSClient } from '../network/Client';
 import { RoomClient } from '../network/RoomClient';
 import { search, AiDifficulty } from '../ai/search';
+import { FEN } from '../engine/fen';
 import { useAuth } from '../auth/AuthContext';
 import BadgeChip, { type BadgeType } from './BadgeChip';
-import { WS_URL } from '../config';
+import { WS_URL, API_BASE } from '../config';
 import Board from './Board';
 import QueuePanel from './QueuePanel';
 import RoomPanel from './RoomPanel';
@@ -634,6 +635,73 @@ function AIGamePage({ onBack }: { onBack: () => void }): JSX.Element {
     if (game.state.turn !== aiColor || game.state.status !== GameStatus.IN_PROGRESS) return;
 
     setAiThinking(true);
+
+    // Use cloud AI when deployed (non-localhost API), fallback to in-browser search.
+    const useCloudAI = !API_BASE.includes('localhost');
+
+    if (useCloudAI) {
+      const fen = FEN.encode(game.state);
+      const controller = new AbortController();
+      const fetchTimeoutId = setTimeout(() => controller.abort(), 15_000);
+
+      fetch(`${API_BASE}/api/v1/ai/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fen, difficulty: AI_DIFFICULTY }),
+        signal: controller.signal,
+      })
+        .then((res) => res.json())
+        .then((data: { from: string; to: string; notation: string; score: number; error?: string }) => {
+          clearTimeout(fetchTimeoutId);
+          if (data.error !== undefined) {
+            console.warn('[AI Cloud] Server error:', data.error);
+            setAiThinking(false);
+            return;
+          }
+          // Parse position keys like 'c0r6' into Position objects.
+          const fromMatch = data.from.match(/c(\d+)r(\d+)/);
+          const toMatch = data.to.match(/c(\d+)r(\d+)/);
+          if (fromMatch === null || toMatch === null) {
+            console.warn('[AI Cloud] Invalid position format:', data.from, data.to);
+            setAiThinking(false);
+            return;
+          }
+          const from: Position = { col: parseInt(fromMatch[1], 10), row: parseInt(fromMatch[2], 10) };
+          const to: Position = { col: parseInt(toMatch[1], 10), row: parseInt(toMatch[2], 10) };
+
+          const moveResult = game.makeMove(from, to);
+          if (moveResult.success) {
+            const hist = game.state.moveHistory;
+            setLastMove(hist.length > 0 ? hist[hist.length - 1] : null);
+            setEvalScore(data.score);
+            forceUpdate();
+          }
+          setAiThinking(false);
+        })
+        .catch((err: unknown) => {
+          clearTimeout(fetchTimeoutId);
+          console.warn('[AI Cloud] Fetch failed, falling back to local search:', err);
+          // Fallback to in-browser alpha-beta search.
+          const result = search(game, aiColor, AI_DIFFICULTY);
+          if (result.bestMove !== null) {
+            const moveResult = game.makeMove(result.bestMove.from, result.bestMove.to);
+            if (moveResult.success) {
+              const hist = game.state.moveHistory;
+              setLastMove(hist.length > 0 ? hist[hist.length - 1] : null);
+              setEvalScore(result.score);
+              forceUpdate();
+            }
+          }
+          setAiThinking(false);
+        });
+
+      return () => {
+        controller.abort();
+        clearTimeout(fetchTimeoutId);
+      };
+    }
+
+    // Local in-browser alpha-beta search.
     const timer = setTimeout(() => {
       const result = search(game, aiColor, AI_DIFFICULTY);
       if (result.bestMove !== null) {
@@ -976,9 +1044,13 @@ function OnlineGamePage({ onBack }: { onBack: () => void }): JSX.Element {
         }
         const result = roomClientRef.current?.makeMove(selectedPos, { col, row });
         if (result?.success) {
-          // Sync gameRef with RoomClient's updated game
+          // Sync gameRef with RoomClient's updated game and set lastMove immediately
           const rc = roomClientRef.current;
-          if (rc !== null) gameRef.current = rc.getGame();
+          if (rc !== null) {
+            gameRef.current = rc.getGame();
+            const hist = gameRef.current.state.moveHistory;
+            setLastMove(hist.length > 0 ? hist[hist.length - 1] : null);
+          }
           setSelectedPos(null);
           setLegalMoves([]);
           forceUpdate();
@@ -1151,10 +1223,15 @@ function SpectateGamePage({ onBack, roomId }: { onBack: () => void; roomId: stri
     roomClientRef.current = rc;
 
     rc.onGameStart = () => {
+      gameRef.current = rc.getGame();
       forceUpdate();
     };
 
-    rc.onMoveMade = () => {
+    // Spectators receive 'spectate_update' events, not 'move_made'.
+    rc.onSpectateUpdate = () => {
+      // RoomClient's spectate_update handler already updated this.game.state
+      // via FEN.decode. Sync our ref and trigger re-render.
+      gameRef.current = rc.getGame();
       const hist = gameRef.current.state.moveHistory;
       setLastMove(hist.length > 0 ? hist[hist.length - 1] : null);
       forceUpdate();

@@ -222,10 +222,22 @@ export class RoomClient {
     this.client.on('move_made', (payload) => {
       const data = payload as unknown as MoveMadePayload;
 
-      // If the move was made by someone else, apply it to our local game
+      // Ignore moves received after game over to prevent state corruption.
+      if (this.game.state.status !== GameStatus.IN_PROGRESS) {
+        return;
+      }
+
+      // If the move was made by someone else, apply it to our local game.
+      // We skip our own moves because they're already applied locally in makeMove().
       if (data.by !== this.client.getPlayerId()) {
         try {
           const state = FEN.decode(data.fen);
+          // Preserve anchorOverloadTracker from the current state since FEN
+          // doesn't encode it. The tracker will be rebuilt naturally as moves
+          // are processed by the game engine.
+          state.anchorOverloadTracker = this.game.state.anchorOverloadTracker;
+          // Preserve coreCooldown (not encoded in FEN; reset to defaults is
+          // acceptable since the next move clears cooldowns anyway).
           this.game.state = state;
         } catch {
           // Fallback: state remains as-is

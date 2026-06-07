@@ -111,41 +111,54 @@ def load_positions_from_db(db_path: str, last_id: int = 0) -> tuple:
 
 
 def fen_to_board(fen: str):
-    """Parse FEN to board array and turn. Simple 7x7 parser."""
-    # Nexus FEN format: board_string turn halfmove fullmove sanctuary
+    """Parse FEN to board array and turn. Handles 2-char piece codes.
+
+    Nexus FEN format: board_string turn halfmove fullmove sanctuary
+    Board rows use 2-character piece codes:
+        WC=White Core(1), WA=White Anchor(2), WF=White Flux(3)
+        BC=Black Core(5), BA=Black Anchor(6), BF=Black Flux(7)
+    Digits represent empty squares (e.g. '7' = 7 empty squares).
+    Example row: 'BFBABFBCBFBABF' (Black's initial back rank).
+    """
     parts = fen.split()
     if len(parts) < 2:
         return None, None
-    
+
     board_str = parts[0]
     turn_str = parts[1]  # 'w' or 'b'
     turn = 0 if turn_str == 'w' else 1
-    
-    # Map pieces to codes
+
+    # Map 2-character piece codes to board values.
     piece_map = {
-        'C': 1,  # White Core
-        'A': 2,  # White Anchor
-        'F': 3,  # White Flux
-        'c': 5,  # Black Core
-        'a': 6,  # Black Anchor
-        'f': 7,  # Black Flux
+        'WC': 1,  # White Core
+        'WA': 2,  # White Anchor
+        'WF': 3,  # White Flux
+        'BC': 5,  # Black Core
+        'BA': 6,  # Black Anchor
+        'BF': 7,  # Black Flux
     }
-    
+
     board = np.zeros(49, dtype=np.int32)
     rows = board_str.split('/')
     if len(rows) != 7:
         return None, None
-    
+
     sq = 0
     for row in rows:
-        for ch in row:
+        i = 0
+        while i < len(row) and sq < 49:
+            ch = row[i]
             if ch.isdigit():
                 sq += int(ch)
-            elif ch in piece_map:
-                if sq < 49:
-                    board[sq] = piece_map[ch]
+                i += 1
+            elif i + 1 < len(row) and row[i:i + 2] in piece_map:
+                board[sq] = piece_map[row[i:i + 2]]
                 sq += 1
-    
+                i += 2
+            else:
+                # Unknown character — skip.
+                i += 1
+
     return board, turn
 
 
