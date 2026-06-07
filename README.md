@@ -7,6 +7,7 @@
 [![React](https://img.shields.io/badge/React-18.x-61DAFB)](https://react.dev/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3-EE4C2C)](https://pytorch.org/)
+[![Pages](https://img.shields.io/badge/GitHub%20Pages-🟢%20Live-222)](https://fearlesswarriors.github.io/nexus-chess/)
 
 ---
 
