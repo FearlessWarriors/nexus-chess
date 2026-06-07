@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+frontend/dist/
+server/dist/
+ai/__pycache__/
+ai/**/__pycache__/
+*.pyc
+*.pyo
+
+# Database
+server/data/*.db
+
+# AI models
+ai/*.pth
+ai/*.onnx
+ai/dqn_checkpoint.pth
+frontend/public/dqn_weights.json
+
+# Environment
+.env
+.env.local
+.env.development
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+server.log
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# AI training data
+ai/data/
+ai/data/positions/

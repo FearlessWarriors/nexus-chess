@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --board-light: #F0D9B5;
+  --board-dark: #B58863;
+  --square-selected: #829769;
+  --square-legal: #646E40;
+  --square-check: #FF6B6B;
+  --square-last-move: #CDA85F;
+}

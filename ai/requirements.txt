@@ -1,0 +1,7 @@
+torch>=2.4.0
+numpy>=1.26.0
+h5py>=3.11.0
+onnx>=1.16.0
+onnxruntime>=1.19.0
+tqdm>=4.66.0
+pyyaml>=6.0.0
