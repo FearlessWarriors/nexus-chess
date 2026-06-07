@@ -59,10 +59,11 @@ export async function loadDQNModel(url: string): Promise<boolean> {
   try {
     const resp = await fetch(url);
     if (!resp.ok) return false;
-    cachedModel = await resp.json();
+    const raw: DQNModel = await resp.json();
+    cachedModel = raw;
 
     // Build cached layers
-    const { architecture, activations, layers } = cachedModel;
+    const { architecture, activations, layers } = raw;
     cachedLayers = [];
     let layerIdx = 0;
     for (let i = 0; i < architecture.length - 1; i++) {
