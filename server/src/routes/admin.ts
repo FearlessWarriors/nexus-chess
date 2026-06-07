@@ -383,6 +383,84 @@ export function createAdminRouter(db: Database.Database): Router {
     res.json({ success: true, userId, newPassword });
   });
 
+  // ── DELETE /api/v1/admin/users/:id ──────────────────────────────────────
+
+  router.delete('/users/:id', (req: Request, res: Response) => {
+    const admin = requireAdmin(db, req, res);
+    if (admin === null) {
+      return;
+    }
+
+    const userId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(userId)) {
+      res.status(400).json({ error: '无效的用户 ID' });
+      return;
+    }
+
+    if (userId === admin.id) {
+      res.status(400).json({ error: '不能删除自己的账户' });
+      return;
+    }
+
+    const target = getUserAuthRow(db, userId);
+    if (target === null) {
+      res.status(404).json({ error: '用户不存在' });
+      return;
+    }
+
+    if (target.is_admin === 1 || target.role === 'admin') {
+      res.status(403).json({ error: '不能删除管理员账号' });
+      return;
+    }
+
+    // Delete user's games first, then the user
+    db.prepare('DELETE FROM games WHERE white_id = ? OR black_id = ?').run(userId, userId);
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    auditLog(db, admin.id, 'delete_user', userId, `Deleted user #${userId} (${target.name})`, {});
+
+    res.json({ success: true, deleted: userId });
+  });
+
+  // ── GET /api/v1/admin/stats ──────────────────────────────────────────────
+
+  router.get('/stats', (req: Request, res: Response) => {
+    const admin = requireAdmin(db, req, res);
+    if (admin === null) {
+      return;
+    }
+
+    const totalUsers = (db.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
+    const totalGames = (db.prepare('SELECT COUNT(*) as c FROM games').get() as { c: number }).c;
+    const finishedGames = (db.prepare('SELECT COUNT(*) as c FROM games WHERE finished_at IS NOT NULL').get() as { c: number }).c;
+    const totalAdmins = (db.prepare('SELECT COUNT(*) as c FROM users WHERE is_admin = 1').get() as { c: number }).c;
+    const topPlayer = db.prepare('SELECT name, elo FROM users ORDER BY elo DESC LIMIT 1').get() as { name: string; elo: number } | undefined;
+
+    // AI training stats
+    const trainableGames = (db.prepare("SELECT COUNT(*) as c FROM games WHERE finished_at IS NOT NULL AND fen_history != '[]'").get() as { c: number }).c;
+    const modelPath = 'ai/dqn/dqn_live.pth';
+    let modelExists = false;
+    let modelSize = 0;
+    try {
+      const fs = require('node:fs');
+      modelExists = fs.existsSync(modelPath);
+      if (modelExists) modelSize = fs.statSync(modelPath).size;
+    } catch { /* ignore */ }
+
+    res.json({
+      users: totalUsers,
+      admins: totalAdmins,
+      games: totalGames,
+      finishedGames,
+      trainableGames,
+      topPlayer: topPlayer ?? null,
+      ai: {
+        modelExists,
+        modelSize,
+        modelPath,
+      }
+    });
+  });
+
   // ── GET /api/v1/admin/games ─────────────────────────────────────────────
 
   router.get('/games', (req: Request, res: Response) => {

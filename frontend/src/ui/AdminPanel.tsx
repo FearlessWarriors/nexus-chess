@@ -85,13 +85,13 @@ interface AdminGame {
   black_name: string | null;
 }
 
-type TabId = 'users' | 'games';
+type TabId = 'dashboard' | 'users' | 'games';
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AdminPanel(): JSX.Element {
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>('users');
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
 
   if (token === null) {
     return (
@@ -108,6 +108,20 @@ export default function AdminPanel(): JSX.Element {
           👑 管理员面板
         </Typography>
         <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            variant={activeTab === 'dashboard' ? 'contained' : 'outlined'}
+            onClick={() => setActiveTab('dashboard')}
+            sx={{
+              fontSize: '0.7rem',
+              bgcolor: activeTab === 'dashboard' ? '#FFD700' : 'transparent',
+              color: activeTab === 'dashboard' ? '#1a1a1a' : '#888',
+              borderColor: '#555',
+              '&:hover': { borderColor: '#FFD700', color: '#FFD700' },
+            }}
+          >
+            总览
+          </Button>
           <Button
             size="small"
             variant={activeTab === 'users' ? 'contained' : 'outlined'}
@@ -139,12 +153,101 @@ export default function AdminPanel(): JSX.Element {
         </Stack>
       </Stack>
 
-      {activeTab === 'users' ? (
+      {activeTab === 'dashboard' ? (
+        <DashboardPanel token={token} />
+      ) : activeTab === 'users' ? (
         <UserManagement token={token} />
       ) : (
         <GameManagement token={token} />
       )}
     </Box>
+  );
+}
+
+// ─── Dashboard Panel ──────────────────────────────────────────────────────────
+
+interface AdminStats {
+  users: number;
+  admins: number;
+  games: number;
+  finishedGames: number;
+  trainableGames: number;
+  topPlayer: { name: string; elo: number } | null;
+  ai: { modelExists: boolean; modelSize: number; modelPath: string };
+}
+
+function DashboardPanel({ token }: { token: string }): JSX.Element {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${API_BASE}/api/v1/admin/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (res) => {
+        if (res.ok) setStats((await res.json()) as AdminStats);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    const timer = setInterval(() => {
+      fetch(`${API_BASE}/api/v1/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(async (res) => {
+          if (res.ok) setStats((await res.json()) as AdminStats);
+        })
+        .catch(() => {});
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [token]);
+
+  if (loading || stats === null) {
+    return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress size={24} sx={{ color: '#FFD700' }} /></Box>;
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        <StatCard label="注册用户" value={stats.users} color="#629924" />
+        <StatCard label="管理员" value={stats.admins} color="#FFD700" />
+        <StatCard label="总对局" value={stats.games} color="#2196f3" />
+        <StatCard label="已完成对局" value={stats.finishedGames} color="#4caf50" />
+      </Stack>
+      <Paper variant="outlined" sx={{ p: 3, bgcolor: '#1e1e1e', borderColor: '#333' }}>
+        <Typography variant="subtitle2" sx={{ color: '#ccc', mb: 1.5 }}>🤖 AI 训练状态</Typography>
+        <Stack spacing={1}>
+          <StatRow label="可训练对局数" value={stats.trainableGames.toString()} />
+          <StatRow label="模型文件" value={stats.ai.modelExists ? `✓ 存在 (${(stats.ai.modelSize / 1024).toFixed(1)} KB)` : '✗ 未生成'} color={stats.ai.modelExists ? '#4caf50' : '#e53e3e'} />
+          <StatRow label="模型路径" value={stats.ai.modelPath} color="#888" />
+        </Stack>
+      </Paper>
+      {stats.topPlayer !== null && (
+        <Paper variant="outlined" sx={{ p: 3, bgcolor: '#1e1e1e', borderColor: '#333' }}>
+          <Typography variant="subtitle2" sx={{ color: '#ccc', mb: 1 }}>👑 当前榜首</Typography>
+          <Typography color="#FFD700" fontWeight={600}>{stats.topPlayer.name}</Typography>
+          <Typography color="#629924">ELO: {stats.topPlayer.elo}</Typography>
+        </Paper>
+      )}
+    </Stack>
+  );
+}
+
+function StatCard({ label, value, color }: { label: string; value: number; color: string }): JSX.Element {
+  return (
+    <Paper variant="outlined" sx={{ flex: 1, p: 2, bgcolor: '#1e1e1e', borderColor: '#333', textAlign: 'center' }}>
+      <Typography variant="h4" fontWeight={700} sx={{ color }}>{value}</Typography>
+      <Typography variant="caption" color="#888">{label}</Typography>
+    </Paper>
+  );
+}
+
+function StatRow({ label, value, color }: { label: string; value: string; color?: string }): JSX.Element {
+  return (
+    <Stack direction="row" justifyContent="space-between">
+      <Typography variant="caption" color="#888">{label}</Typography>
+      <Typography variant="caption" fontWeight={600} color={color ?? '#aaa'}>{value}</Typography>
+    </Stack>
   );
 }
 
@@ -217,6 +320,27 @@ function UserManagement({ token }: { token: string }): JSX.Element {
           fetchUsers();
         } else {
           setSnackbar({ message: data.error ?? '操作失败', severity: 'error' });
+        }
+      } catch {
+        setSnackbar({ message: '网络错误', severity: 'error' });
+      }
+    },
+    [token, fetchUsers],
+  );
+
+  const handleDeleteUser = useCallback(
+    async (userId: number) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/admin/users/${userId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setSnackbar({ message: `已删除用户 ID:${userId}`, severity: 'success' });
+          fetchUsers();
+        } else {
+          setSnackbar({ message: data.error ?? '删除失败', severity: 'error' });
         }
       } catch {
         setSnackbar({ message: '网络错误', severity: 'error' });
@@ -374,6 +498,21 @@ function UserManagement({ token }: { token: string }): JSX.Element {
                         <ResetIcon sx={{ fontSize: 16 }} />
                       </IconButton>
                     </Tooltip>
+                    {u.is_admin !== 1 && (
+                      <Tooltip title="删除账户（同时删除对局记录）">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            if (window.confirm(`确定删除用户 "${u.name}" (ID:${u.id}) 及其所有对局记录吗？此操作不可撤销。`)) {
+                              handleDeleteUser(u.id);
+                            }
+                          }}
+                          sx={{ color: '#d32f2f' }}
+                        >
+                          <DeleteIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Stack>
                 </TableCell>
               </TableRow>

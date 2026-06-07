@@ -101,38 +101,59 @@ export default function LeaderboardPanel({ onBack }: LeaderboardPanelProps): JSX
   }, [fetchLeaderboard]);
 
   const entries = useMemo((): LeaderboardEntry[] => {
+    // Use server data as primary source when available
+    const serverList = Array.from(serverEntries.values());
+    
+    if (serverList.length > 0) {
+      // Server data is authoritative
+      let list = serverList.map((e): LeaderboardEntry => ({
+        rank: e.rank,
+        id: e.id,
+        name: e.name,
+        elo: e.elo,
+        wins: e.wins,
+        losses: e.losses,
+        draws: e.draws,
+        totalGames: e.totalGames,
+        winRate: e.winRate,
+        badge_type: e.badge_type as string,
+        badge_text: e.badge_text,
+      }));
+
+      if (search.trim().length > 0) {
+        const q = search.trim().toLowerCase();
+        list = list.filter(e => e.name.toLowerCase().includes(q));
+      }
+      return list;
+    }
+
+    // Fallback to localStorage when server unavailable
     LeaderboardManager.load();
     if (search.trim().length > 0) {
       const players = LeaderboardManager.searchPlayers(search.trim());
-      return players.map((p, idx): LeaderboardEntry => {
-        const serverEntry = serverEntries.get(p.id);
-        return {
-          rank: idx + 1,
-          id: p.id,
-          name: p.name,
-          elo: p.elo,
-          wins: p.wins,
-          losses: p.losses,
-          draws: p.draws,
-          winRate: p.totalGames > 0 ? p.wins / p.totalGames : 0,
-          totalGames: p.totalGames,
-          badge_type: serverEntry?.badge_type ?? '',
-          badge_text: serverEntry?.badge_text ?? '',
-        };
-      });
+      return players.map((p, idx): LeaderboardEntry => ({
+        rank: idx + 1,
+        id: p.id,
+        name: p.name,
+        elo: p.elo,
+        wins: p.wins,
+        losses: p.losses,
+        draws: p.draws,
+        winRate: p.totalGames > 0 ? p.wins / p.totalGames : 0,
+        totalGames: p.totalGames,
+        badge_type: '',
+        badge_text: '',
+      }));
     }
     const localEntries = LeaderboardManager.getLeaderboard(
       sortField === 'elo' ? 'elo' : sortField === 'winRate' ? 'winRate' : 'totalGames',
       50,
     );
-    return localEntries.map((entry): LeaderboardEntry => {
-      const serverEntry = serverEntries.get(entry.id);
-      return {
-        ...entry,
-        badge_type: serverEntry?.badge_type ?? '',
-        badge_text: serverEntry?.badge_text ?? '',
-      };
-    });
+    return localEntries.map((entry): LeaderboardEntry => ({
+      ...entry,
+      badge_type: '',
+      badge_text: '',
+    }));
   }, [search, sortField, serverEntries]);
 
   // Sort entries
