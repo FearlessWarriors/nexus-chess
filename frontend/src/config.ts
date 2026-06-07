@@ -8,7 +8,7 @@
 // Cloud tunnel URL (temporary)
 // For permanent deployment, change to your Render.com / cloud URL
 // e.g. 'https://nexus-chess-api.onrender.com'
-const API_HOST_CLOUD = 'https://b7e3e98ad7032f.lhr.life';
+const API_HOST_CLOUD = 'https://f622b8bf5a9047.lhr.life';
 
 // Use cloud URL when deployed, localhost when dev
 const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
