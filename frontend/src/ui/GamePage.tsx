@@ -34,6 +34,7 @@ import { RoomClient } from '../network/RoomClient';
 import { search, AiDifficulty } from '../ai/search';
 import { useAuth } from '../auth/AuthContext';
 import BadgeChip, { type BadgeType } from './BadgeChip';
+import { WS_URL } from '../config';
 import Board from './Board';
 import QueuePanel from './QueuePanel';
 import RoomPanel from './RoomPanel';
@@ -892,7 +893,7 @@ function OnlineGamePage({ onBack }: { onBack: () => void }): JSX.Element {
       console.error(`[Online] ${code}: ${message}`);
     };
 
-    ws.connect('ws://localhost:3001/ws');
+    ws.connect(WS_URL);
 
     return () => {
       if (queueTimerRef.current !== null) clearInterval(queueTimerRef.current);
@@ -1167,7 +1168,7 @@ function SpectateGamePage({ onBack, roomId }: { onBack: () => void; roomId: stri
       console.error(`[Spectate] ${code}: ${message}`);
     };
 
-    ws.connect('ws://localhost:3001/ws');
+    ws.connect(WS_URL);
 
     // Wait for connection then spectate
     const checkInterval = setInterval(() => {

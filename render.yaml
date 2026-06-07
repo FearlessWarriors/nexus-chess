@@ -1,0 +1,19 @@
+# Render.com deployment configuration
+# See: https://render.com/docs
+
+services:
+  - type: web
+    name: nexus-chess-api
+    env: node
+    plan: free
+    buildCommand: cd server && npm ci && npm run build
+    startCommand: cd server && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+    disk:
+      name: sqlite-data
+      mountPath: /opt/render/project/src/server/data
+      sizeGB: 1

@@ -29,9 +29,7 @@ interface ProfileDialogProps {
   onClose: () => void;
 }
 
-// ─── API ─────────────────────────────────────────────────────────────────────
-
-const API_BASE = 'http://localhost:3001';
+import { API_BASE } from '../config';
 
 // ─── Component ───────────────────────────────────────────────────────────────
 

@@ -49,9 +49,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 
-// ─── API ─────────────────────────────────────────────────────────────────────
-
-const API_BASE = 'http://localhost:3001';
+import { API_BASE } from '../config';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

@@ -26,6 +26,7 @@ import {
 import { LeaderboardManager } from '../tournament/LeaderboardManager';
 import type { LeaderboardEntry, LeaderboardSortBy, PlayerEntry } from '../tournament/types';
 import BadgeChip, { type BadgeType } from './BadgeChip';
+import { API_BASE } from '../config';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ export default function LeaderboardPanel({ onBack }: LeaderboardPanelProps): JSX
   // Fetch server leaderboard for badge info
   useEffect(() => {
     let cancelled = false;
-    fetch('http://localhost:3001/api/v1/leaderboard?limit=500')
+    fetch(`${API_BASE}/api/v1/leaderboard?limit=500`)
       .then(async (res) => {
         if (!res.ok) return;
         const data = await res.json();
